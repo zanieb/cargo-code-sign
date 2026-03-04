@@ -39,6 +39,7 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
 }
 
 const SIGNING_ENV_KEYS: &[&str] = &[
+    "CARGO_CODE_SIGN_SKIP",
     "CODESIGN_IDENTITY",
     "CODESIGN_CERTIFICATE",
     "CODESIGN_CERTIFICATE_PASSWORD",
@@ -732,6 +733,35 @@ fn test_build_with_short_message_format_fails() {
         &[],
     );
     assert_ne!(out.code, 0, "expected failure for --message-format=short");
+}
+
+/// `CARGO_CODE_SIGN_SKIP=1` should bypass signing logic and allow non-JSON
+/// message formats, behaving like a normal cargo passthrough.
+#[test]
+fn test_skip_allows_incompatible_message_format() {
+    let (_tmp, cargo_toml) = setup_fixture("simple_bin");
+    let out = run_code_sign_with_env_full(
+        &cargo_toml,
+        "build",
+        &["--release", "--message-format=human"],
+        &[("CARGO_CODE_SIGN_SKIP", "1".to_string())],
+        &[],
+    );
+    assert_eq!(out.code, 0, "expected success with CARGO_CODE_SIGN_SKIP=1");
+}
+
+/// Invalid boolish values for `CARGO_CODE_SIGN_SKIP` should fail fast.
+#[test]
+fn test_invalid_skip_env_value_fails() {
+    let (_tmp, cargo_toml) = setup_fixture("simple_bin");
+    let out = run_code_sign_with_env_full(
+        &cargo_toml,
+        "build",
+        &["--release"],
+        &[("CARGO_CODE_SIGN_SKIP", "maybe".to_string())],
+        &[],
+    );
+    assert_ne!(out.code, 0, "expected failure for invalid skip value");
 }
 
 /// `cargo code-sign build --message-format=json-render-diagnostics` should

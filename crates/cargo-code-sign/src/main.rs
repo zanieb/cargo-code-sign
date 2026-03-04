@@ -2,6 +2,7 @@
 //!
 //! General environment variables:
 //! - `CARGO_CODE_SIGN_TEST_BINARIES`: set to `1` to also sign test binaries.
+//! - `CARGO_CODE_SIGN_SKIP`: set to `1` to skip all signing and fully pass through to cargo.
 //!
 //! Runs `cargo build --message-format=json` with the user's arguments, parses the artifact messages
 //! to find produced binaries and cdylibs, then signs each one.
@@ -89,6 +90,15 @@ fn run() -> Result<(), RunError> {
     let args: Vec<_> = env::args_os().skip(2).collect();
 
     let cargo = cargo();
+
+    // Optional hard skip for all signing behavior.
+    let skip_signing = parse_boolish_env("CARGO_CODE_SIGN_SKIP")?.unwrap_or(false);
+    if skip_signing {
+        tracing::info!(
+            "CARGO_CODE_SIGN_SKIP enabled; skipping signing and passing through to cargo"
+        );
+        return run_passthrough_cargo(&cargo, &args);
+    }
 
     // Determine the target triple for signer selection.
     //
@@ -211,6 +221,22 @@ fn run() -> Result<(), RunError> {
 
     if failures > 0 {
         return Err(RunError::MultipleSignFailures(failures));
+    }
+
+    Ok(())
+}
+
+/// Run cargo with full stdout/stderr passthrough and no signing behavior.
+fn run_passthrough_cargo(cargo: &OsString, args: &[OsString]) -> Result<(), RunError> {
+    let status = Command::new(cargo)
+        .args(args)
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()
+        .map_err(RunError::CargoSpawn)?;
+
+    if !status.success() {
+        return Err(RunError::CargoFailed(status));
     }
 
     Ok(())
