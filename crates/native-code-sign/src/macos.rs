@@ -445,6 +445,17 @@ impl EphemeralKeychain {
             .output()
             .map_err(|e| CodesignError::keychain(KeychainStep::VerifyIdentity, e))?;
 
+        if !output.status.success() {
+            return Err(CodesignError::keychain(
+                KeychainStep::VerifyIdentity,
+                crate::CommandError::Failed {
+                    status: output.status,
+                    stdout: String::from_utf8_lossy(&output.stdout).trim().to_string(),
+                    stderr: String::from_utf8_lossy(&output.stderr).trim().to_string(),
+                },
+            ));
+        }
+
         let stdout = String::from_utf8_lossy(&output.stdout);
 
         if stdout.contains(identity) {

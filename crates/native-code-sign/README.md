@@ -21,6 +21,8 @@ programs modifying the keychain search list.
 
 Uses Microsoft `signtool.exe`.
 
+### Local certificate signing (.pfx)
+
 Set the following environment variables:
 
 - `SIGNTOOL_CERTIFICATE_PATH`: path to a .pfx certificate file
@@ -28,3 +30,21 @@ Set the following environment variables:
 - `SIGNTOOL_TIMESTAMP_URL`: (optional) RFC 3161 timestamp server URL
 - `SIGNTOOL_DESCRIPTION`: (optional) description shown in UAC prompts (signtool `/d` flag)
 - `SIGNTOOL_PATH`: (optional) path to signtool.exe (defaults to `signtool.exe` from `PATH`)
+
+### Azure Trusted Signing
+
+Set all of:
+
+- `SIGNTOOL_AZURE_DLIB_PATH`: path to `Azure.CodeSigning.Dlib.dll`
+- `SIGNTOOL_AZURE_ENDPOINT`: Artifact Signing endpoint (for example `https://eus.codesigning.azure.net`)
+- `SIGNTOOL_AZURE_ACCOUNT`: `CodeSigningAccountName`
+- `SIGNTOOL_AZURE_CERTIFICATE_PROFILE`: `CertificateProfileName`
+
+Optional:
+
+- `SIGNTOOL_AZURE_CORRELATION_ID`: correlation ID for request tracing
+- `SIGNTOOL_TIMESTAMP_URL`: RFC 3161 timestamp URL (defaults to `http://timestamp.acs.microsoft.com`)
+- `SIGNTOOL_DESCRIPTION`: description shown in UAC prompts (`/d`)
+- `SIGNTOOL_PATH`: explicit path to `signtool.exe`
+
+Azure authentication is handled by the dlib via `DefaultAzureCredential`.

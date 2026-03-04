@@ -15,8 +15,8 @@ use std::process::{Command, ExitStatus};
 use thiserror::Error;
 
 pub use macos::{
-    adhoc_sign, CodesignConfigError, CodesignError, KeychainSetupError, KeychainStep, MacOsSigner,
-    MacOsSigningSession,
+    CodesignConfigError, CodesignError, KeychainSetupError, KeychainStep, MacOsSigner,
+    MacOsSigningSession, adhoc_sign,
 };
 pub use windows::{SigntoolConfigError, SigntoolError, WindowsSigner};
 

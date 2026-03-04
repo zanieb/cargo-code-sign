@@ -9,7 +9,7 @@
 use std::ffi::OsString;
 use std::io::{BufRead, Write};
 use std::path::PathBuf;
-use std::process::{exit, Command, Stdio};
+use std::process::{Command, Stdio, exit};
 use std::{env, io::BufReader};
 
 use cargo_metadata::{Artifact, Message};
@@ -32,7 +32,9 @@ fn main() {
 }
 
 fn shoo() -> ! {
-    eprintln!("'cargo code-sign' should be invoked through Cargo, e.g.:\n  cargo code-sign build --release");
+    eprintln!(
+        "'cargo code-sign' should be invoked through Cargo, e.g.:\n  cargo code-sign build --release"
+    );
     exit(1);
 }
 

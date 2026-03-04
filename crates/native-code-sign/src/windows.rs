@@ -64,6 +64,8 @@ pub enum SigntoolConfigError {
         "incomplete Azure Trusted Signing configuration: set all of SIGNTOOL_AZURE_DLIB_PATH, SIGNTOOL_AZURE_ENDPOINT, SIGNTOOL_AZURE_ACCOUNT, and SIGNTOOL_AZURE_CERTIFICATE_PROFILE (missing: {missing})"
     )]
     IncompleteAzureConfiguration { missing: String },
+    #[error("failed to prepare Azure Trusted Signing metadata: {0}")]
+    AzureMetadataWrite(#[source] std::io::Error),
 }
 
 /// The signing method — either a local certificate or Azure Trusted Signing.
@@ -107,6 +109,7 @@ impl WindowsSigner {
     ///   variables are set.
     /// - [`SigntoolConfigError::IncompleteAzureConfiguration`] when only some Azure variables
     ///   are set.
+    /// - [`SigntoolConfigError::AzureMetadataWrite`] when generating Azure metadata fails.
     pub fn from_env() -> Result<Option<Self>, SigntoolConfigError> {
         // Try certificate-based signing first.
         if let Some(signer) = Self::from_env_certificate()? {
@@ -179,7 +182,7 @@ impl WindowsSigner {
                 );
 
                 let metadata_dir =
-                    tempfile::tempdir().map_err(|e| SigntoolConfigError::azure_metadata_io(&e))?;
+                    tempfile::tempdir().map_err(SigntoolConfigError::AzureMetadataWrite)?;
                 let metadata_path = metadata_dir.path().join("metadata.json");
                 {
                     use std::io::Write;
@@ -192,9 +195,9 @@ impl WindowsSigner {
                     }
                     let mut file = opts
                         .open(&metadata_path)
-                        .map_err(|e| SigntoolConfigError::azure_metadata_io(&e))?;
+                        .map_err(SigntoolConfigError::AzureMetadataWrite)?;
                     file.write_all(metadata.as_bytes())
-                        .map_err(|e| SigntoolConfigError::azure_metadata_io(&e))?;
+                        .map_err(SigntoolConfigError::AzureMetadataWrite)?;
                 }
 
                 Ok(Some(Self {
@@ -318,15 +321,6 @@ impl WindowsSigner {
         match output {
             Ok(o) => o.status.success(),
             Err(_) => false,
-        }
-    }
-}
-
-impl SigntoolConfigError {
-    fn azure_metadata_io(e: &std::io::Error) -> Self {
-        // Surface metadata file I/O errors as incomplete config since they happen during setup.
-        Self::IncompleteAzureConfiguration {
-            missing: format!("(failed to write metadata file: {e})"),
         }
     }
 }
