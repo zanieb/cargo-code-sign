@@ -81,6 +81,9 @@ fn test_adhoc_sign_via_signer_api() {
             "CODESIGN_IDENTITY",
             "CODESIGN_CERTIFICATE",
             "CODESIGN_CERTIFICATE_PASSWORD",
+            "CODESIGN_IDENTITY_MACOS",
+            "CODESIGN_CERTIFICATE_MACOS",
+            "CODESIGN_CERTIFICATE_PASSWORD_MACOS",
         ],
         || Signer::from_env("aarch64-apple-darwin"),
     )
@@ -260,6 +263,9 @@ fn test_from_env_returns_none_for_apple_cross_compile() {
             "CODESIGN_IDENTITY",
             "CODESIGN_CERTIFICATE",
             "CODESIGN_CERTIFICATE_PASSWORD",
+            "CODESIGN_IDENTITY_MACOS",
+            "CODESIGN_CERTIFICATE_MACOS",
+            "CODESIGN_CERTIFICATE_PASSWORD_MACOS",
         ],
         || Signer::from_env("aarch64-apple-darwin"),
     )
@@ -279,7 +285,7 @@ fn test_from_env_returns_none_for_apple_cross_compile() {
 fn test_windows_sign_via_signer_api() {
     if !require_env_or_skip(
         "Windows signing",
-        &["SIGNTOOL_CERTIFICATE_PATH", "SIGNTOOL_CERTIFICATE_PASSWORD"],
+        &["CODESIGN_CERTIFICATE_PATH", "CODESIGN_CERTIFICATE_PASSWORD"],
     ) {
         return;
     }

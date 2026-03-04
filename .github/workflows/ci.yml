@@ -233,9 +233,9 @@ jobs:
             throw "signtool.exe not found on runner"
           }
 
-          "SIGNTOOL_CERTIFICATE_PATH=$pfxPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "SIGNTOOL_CERTIFICATE_PASSWORD=$passwordPlain" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "SIGNTOOL_PATH=$signtool" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "CODESIGN_CERTIFICATE_PATH=$pfxPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "CODESIGN_CERTIFICATE_PASSWORD=$passwordPlain" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "CODESIGN_TOOL_PATH=$signtool" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: "Cargo test"
         run: cargo test --workspace --all-features --locked

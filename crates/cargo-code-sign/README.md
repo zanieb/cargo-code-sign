@@ -26,6 +26,7 @@ No signing is performed on Linux — using `cargo code-sign` is a no-op.
 
 - `CARGO_CODE_SIGN_TEST_BINARIES`: Set to `1` to also sign test binaries (default: disabled)
 - `CARGO_CODE_SIGN_SKIP`: Set to `1` to skip signing entirely and pass all arguments directly to inner cargo
+  - Also supports host-specific aliases: `CARGO_CODE_SIGN_SKIP_MACOS` and `CARGO_CODE_SIGN_SKIP_WINDOWS` (preferred when present)
 - `CARGO_CODE_SIGN_CARGO`: Path to the inner `cargo` command (see [Nested cargo wrappers](#nested-cargo-wrappers); default: `CARGO` env var, then `cargo`)
 
 ## Cross-compiles

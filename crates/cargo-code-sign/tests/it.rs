@@ -40,15 +40,38 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
 
 const SIGNING_ENV_KEYS: &[&str] = &[
     "CARGO_CODE_SIGN_SKIP",
+    "CARGO_CODE_SIGN_SKIP_MACOS",
+    "CARGO_CODE_SIGN_SKIP_WINDOWS",
     "CODESIGN_IDENTITY",
     "CODESIGN_CERTIFICATE",
     "CODESIGN_CERTIFICATE_PASSWORD",
     "CODESIGN_OPTIONS",
     "CODESIGN_ALLOW_UNTRUSTED",
-    "SIGNTOOL_CERTIFICATE_PATH",
-    "SIGNTOOL_CERTIFICATE_PASSWORD",
-    "SIGNTOOL_TIMESTAMP_URL",
-    "SIGNTOOL_PATH",
+    "CODESIGN_IDENTITY_MACOS",
+    "CODESIGN_CERTIFICATE_MACOS",
+    "CODESIGN_CERTIFICATE_PASSWORD_MACOS",
+    "CODESIGN_OPTIONS_MACOS",
+    "CODESIGN_ALLOW_UNTRUSTED_MACOS",
+    "CODESIGN_CERTIFICATE_PATH",
+    "CODESIGN_CERTIFICATE_PASSWORD",
+    "CODESIGN_TIMESTAMP_URL",
+    "CODESIGN_TOOL_PATH",
+    "CODESIGN_DESCRIPTION",
+    "CODESIGN_AZURE_DLIB_PATH",
+    "CODESIGN_AZURE_ENDPOINT",
+    "CODESIGN_AZURE_ACCOUNT",
+    "CODESIGN_AZURE_CERTIFICATE_PROFILE",
+    "CODESIGN_AZURE_CORRELATION_ID",
+    "CODESIGN_CERTIFICATE_PATH_WINDOWS",
+    "CODESIGN_CERTIFICATE_PASSWORD_WINDOWS",
+    "CODESIGN_TIMESTAMP_URL_WINDOWS",
+    "CODESIGN_TOOL_PATH_WINDOWS",
+    "CODESIGN_DESCRIPTION_WINDOWS",
+    "CODESIGN_AZURE_DLIB_PATH_WINDOWS",
+    "CODESIGN_AZURE_ENDPOINT_WINDOWS",
+    "CODESIGN_AZURE_ACCOUNT_WINDOWS",
+    "CODESIGN_AZURE_CERTIFICATE_PROFILE_WINDOWS",
+    "CODESIGN_AZURE_CORRELATION_ID_WINDOWS",
 ];
 
 /// Run `cargo code-sign <subcommand> [args...]` inside the given fixture dir.
@@ -259,7 +282,7 @@ fn assert_identity_signed(path: &Path) {
 fn require_windows_signing_env_or_skip() -> bool {
     require_env_or_skip(
         "Windows signing test",
-        &["SIGNTOOL_CERTIFICATE_PATH", "SIGNTOOL_CERTIFICATE_PASSWORD"],
+        &["CODESIGN_CERTIFICATE_PATH", "CODESIGN_CERTIFICATE_PASSWORD"],
     )
 }
 
@@ -473,6 +496,35 @@ fn test_simple_bin_identity_signs_when_env_configured() {
     assert_identity_signed(&bin);
 }
 
+#[cfg(target_os = "macos")]
+#[test]
+fn test_simple_bin_identity_signs_with_macos_suffix_env() {
+    if !require_macos_identity_env_or_skip() {
+        return;
+    }
+
+    let identity = std::env::var("CODESIGN_IDENTITY").unwrap();
+    let certificate = std::env::var("CODESIGN_CERTIFICATE").unwrap();
+    let password = std::env::var("CODESIGN_CERTIFICATE_PASSWORD").unwrap();
+
+    let mut env = vec![
+        ("CODESIGN_IDENTITY_MACOS", identity),
+        ("CODESIGN_CERTIFICATE_MACOS", certificate),
+        ("CODESIGN_CERTIFICATE_PASSWORD_MACOS", password),
+    ];
+    if let Ok(allow_untrusted) = std::env::var("CODESIGN_ALLOW_UNTRUSTED") {
+        env.push(("CODESIGN_ALLOW_UNTRUSTED_MACOS", allow_untrusted));
+    }
+
+    let (tmp, cargo_toml) = setup_fixture("simple_bin");
+    let code = run_code_sign_build_with_env(&cargo_toml, true, &[], &env, &[]);
+    assert_eq!(code, 0, "identity-signing build with _MACOS env failed");
+
+    let bin = bin_artifact(tmp.path(), "release", "simple_bin");
+    assert_codesigned(&bin);
+    assert_identity_signed(&bin);
+}
+
 #[cfg(target_os = "windows")]
 #[test]
 fn test_simple_cdylib_windows_signs_when_env_configured() {
@@ -480,18 +532,18 @@ fn test_simple_cdylib_windows_signs_when_env_configured() {
         return;
     }
 
-    let cert_path = std::env::var("SIGNTOOL_CERTIFICATE_PATH").unwrap();
-    let cert_password = std::env::var("SIGNTOOL_CERTIFICATE_PASSWORD").unwrap();
+    let cert_path = std::env::var("CODESIGN_CERTIFICATE_PATH").unwrap();
+    let cert_password = std::env::var("CODESIGN_CERTIFICATE_PASSWORD").unwrap();
 
     let mut env = vec![
-        ("SIGNTOOL_CERTIFICATE_PATH", cert_path),
-        ("SIGNTOOL_CERTIFICATE_PASSWORD", cert_password),
+        ("CODESIGN_CERTIFICATE_PATH", cert_path),
+        ("CODESIGN_CERTIFICATE_PASSWORD", cert_password),
     ];
-    if let Ok(ts) = std::env::var("SIGNTOOL_TIMESTAMP_URL") {
-        env.push(("SIGNTOOL_TIMESTAMP_URL", ts));
+    if let Ok(ts) = std::env::var("CODESIGN_TIMESTAMP_URL") {
+        env.push(("CODESIGN_TIMESTAMP_URL", ts));
     }
-    if let Ok(path) = std::env::var("SIGNTOOL_PATH") {
-        env.push(("SIGNTOOL_PATH", path));
+    if let Ok(path) = std::env::var("CODESIGN_TOOL_PATH") {
+        env.push(("CODESIGN_TOOL_PATH", path));
     }
 
     let (tmp, cargo_toml) = setup_fixture("simple_cdylib");
@@ -509,23 +561,52 @@ fn test_simple_bin_windows_signs_when_env_configured() {
         return;
     }
 
-    let cert_path = std::env::var("SIGNTOOL_CERTIFICATE_PATH").unwrap();
-    let cert_password = std::env::var("SIGNTOOL_CERTIFICATE_PASSWORD").unwrap();
+    let cert_path = std::env::var("CODESIGN_CERTIFICATE_PATH").unwrap();
+    let cert_password = std::env::var("CODESIGN_CERTIFICATE_PASSWORD").unwrap();
 
     let mut env = vec![
-        ("SIGNTOOL_CERTIFICATE_PATH", cert_path),
-        ("SIGNTOOL_CERTIFICATE_PASSWORD", cert_password),
+        ("CODESIGN_CERTIFICATE_PATH", cert_path),
+        ("CODESIGN_CERTIFICATE_PASSWORD", cert_password),
     ];
-    if let Ok(ts) = std::env::var("SIGNTOOL_TIMESTAMP_URL") {
-        env.push(("SIGNTOOL_TIMESTAMP_URL", ts));
+    if let Ok(ts) = std::env::var("CODESIGN_TIMESTAMP_URL") {
+        env.push(("CODESIGN_TIMESTAMP_URL", ts));
     }
-    if let Ok(path) = std::env::var("SIGNTOOL_PATH") {
-        env.push(("SIGNTOOL_PATH", path));
+    if let Ok(path) = std::env::var("CODESIGN_TOOL_PATH") {
+        env.push(("CODESIGN_TOOL_PATH", path));
     }
 
     let (tmp, cargo_toml) = setup_fixture("simple_bin");
     let code = run_code_sign_build_with_env(&cargo_toml, true, &[], &env, &[]);
     assert_eq!(code, 0, "windows signing build failed");
+
+    let bin = bin_artifact(tmp.path(), "release", "simple_bin");
+    assert_windows_signed(&bin);
+}
+
+#[cfg(target_os = "windows")]
+#[test]
+fn test_simple_bin_windows_signs_with_windows_suffix_env() {
+    if !require_windows_signing_env_or_skip() {
+        return;
+    }
+
+    let cert_path = std::env::var("CODESIGN_CERTIFICATE_PATH").unwrap();
+    let cert_password = std::env::var("CODESIGN_CERTIFICATE_PASSWORD").unwrap();
+
+    let mut env = vec![
+        ("CODESIGN_CERTIFICATE_PATH_WINDOWS", cert_path),
+        ("CODESIGN_CERTIFICATE_PASSWORD_WINDOWS", cert_password),
+    ];
+    if let Ok(ts) = std::env::var("CODESIGN_TIMESTAMP_URL") {
+        env.push(("CODESIGN_TIMESTAMP_URL_WINDOWS", ts));
+    }
+    if let Ok(path) = std::env::var("CODESIGN_TOOL_PATH") {
+        env.push(("CODESIGN_TOOL_PATH_WINDOWS", path));
+    }
+
+    let (tmp, cargo_toml) = setup_fixture("simple_bin");
+    let code = run_code_sign_build_with_env(&cargo_toml, true, &[], &env, &[]);
+    assert_eq!(code, 0, "windows signing build with _WINDOWS env failed");
 
     let bin = bin_artifact(tmp.path(), "release", "simple_bin");
     assert_windows_signed(&bin);
@@ -762,6 +843,48 @@ fn test_invalid_skip_env_value_fails() {
         &[],
     );
     assert_ne!(out.code, 0, "expected failure for invalid skip value");
+}
+
+/// On macOS, `CARGO_CODE_SIGN_SKIP_MACOS=1` should override generic skip settings.
+#[cfg(target_os = "macos")]
+#[test]
+fn test_skip_macos_suffix_overrides_generic() {
+    let (_tmp, cargo_toml) = setup_fixture("simple_bin");
+    let out = run_code_sign_with_env_full(
+        &cargo_toml,
+        "build",
+        &["--release", "--message-format=human"],
+        &[
+            ("CARGO_CODE_SIGN_SKIP", "0".to_string()),
+            ("CARGO_CODE_SIGN_SKIP_MACOS", "1".to_string()),
+        ],
+        &[],
+    );
+    assert_eq!(
+        out.code, 0,
+        "expected success with CARGO_CODE_SIGN_SKIP_MACOS=1"
+    );
+}
+
+/// On Windows, `CARGO_CODE_SIGN_SKIP_WINDOWS=1` should override generic skip settings.
+#[cfg(target_os = "windows")]
+#[test]
+fn test_skip_windows_suffix_overrides_generic() {
+    let (_tmp, cargo_toml) = setup_fixture("simple_bin");
+    let out = run_code_sign_with_env_full(
+        &cargo_toml,
+        "build",
+        &["--release", "--message-format=human"],
+        &[
+            ("CARGO_CODE_SIGN_SKIP", "0".to_string()),
+            ("CARGO_CODE_SIGN_SKIP_WINDOWS", "1".to_string()),
+        ],
+        &[],
+    );
+    assert_eq!(
+        out.code, 0,
+        "expected success with CARGO_CODE_SIGN_SKIP_WINDOWS=1"
+    );
 }
 
 /// `cargo code-sign build --message-format=json-render-diagnostics` should
@@ -1004,8 +1127,8 @@ fn test_maturin_build_through_cargo_code_sign() {
         .env_remove("CODESIGN_IDENTITY")
         .env_remove("CODESIGN_CERTIFICATE")
         .env_remove("CODESIGN_CERTIFICATE_PASSWORD")
-        .env_remove("SIGNTOOL_CERTIFICATE_PATH")
-        .env_remove("SIGNTOOL_CERTIFICATE_PASSWORD")
+        .env_remove("CODESIGN_CERTIFICATE_PATH")
+        .env_remove("CODESIGN_CERTIFICATE_PASSWORD")
         .env("RUST_LOG", "cargo_code_sign=debug")
         .output()
         .expect("failed to run maturin");

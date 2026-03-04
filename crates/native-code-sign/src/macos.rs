@@ -8,6 +8,8 @@
 //! - `CODESIGN_ALLOW_UNTRUSTED`: (optional) set to `1` or `true` to allow
 //!   self-signed certificates that are not in the system trust store.
 //!
+//! All variables also support a `_MACOS` suffix (e.g. `CODESIGN_CERTIFICATE_MACOS`).
+//!
 //! Supports two modes:
 //! 1. **Identity signing**: if `CODESIGN_IDENTITY`, `CODESIGN_CERTIFICATE`, and
 //!    `CODESIGN_CERTIFICATE_PASSWORD` are all set, creates an ephemeral keychain,
@@ -27,6 +29,17 @@ use crate::secret::Secret;
 
 const CODESIGN_BIN: &str = "codesign";
 const SECURITY_BIN: &str = "security";
+const MACOS_ENV_SUFFIX: &str = "MACOS";
+
+/// Read a signing env var with optional platform suffix.
+///
+/// Prefer `<NAME>_MACOS` when present, otherwise fall back to `<NAME>`.
+fn env_var_macos(name: &str) -> Option<String> {
+    let suffixed = format!("{name}_{MACOS_ENV_SUFFIX}");
+    std::env::var(&suffixed)
+        .ok()
+        .or_else(|| std::env::var(name).ok())
+}
 
 #[derive(Debug, Error)]
 pub enum CodesignError {
@@ -169,9 +182,9 @@ impl MacOsSigner {
     ///
     /// Returns [`Ok(None)`] when none of the identity variables are set.
     pub fn from_env() -> Result<Option<Self>, CodesignConfigError> {
-        let identity = std::env::var("CODESIGN_IDENTITY").ok();
-        let cert_b64 = std::env::var("CODESIGN_CERTIFICATE").ok();
-        let password = std::env::var("CODESIGN_CERTIFICATE_PASSWORD").ok();
+        let identity = env_var_macos("CODESIGN_IDENTITY");
+        let cert_b64 = env_var_macos("CODESIGN_CERTIFICATE");
+        let password = env_var_macos("CODESIGN_CERTIFICATE_PASSWORD");
 
         match (identity, cert_b64, password) {
             (None, None, None) => Ok(None),
@@ -186,9 +199,8 @@ impl MacOsSigner {
                 let certificate = base64::engine::general_purpose::STANDARD
                     .decode(&cert_b64_clean)
                     .map_err(CodesignConfigError::InvalidCertificate)?;
-                let options = std::env::var("CODESIGN_OPTIONS").ok();
-                let allow_untrusted = std::env::var("CODESIGN_ALLOW_UNTRUSTED")
-                    .ok()
+                let options = env_var_macos("CODESIGN_OPTIONS");
+                let allow_untrusted = env_var_macos("CODESIGN_ALLOW_UNTRUSTED")
                     .is_some_and(|v| v == "1" || v.eq_ignore_ascii_case("true"));
 
                 Ok(Some(Self {
