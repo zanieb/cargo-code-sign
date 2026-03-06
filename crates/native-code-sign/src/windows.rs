@@ -4,28 +4,27 @@
 //!
 //! ## Certificate signing (local `.pfx`)
 //!
-//! - `CODESIGN_CERTIFICATE_PATH`: path to a `.pfx` certificate file
-//! - `CODESIGN_CERTIFICATE_PASSWORD`: password for the `.pfx`
+//! - `CODE_SIGN_CERTIFICATE_PATH`: path to a `.pfx` certificate file
+//! - `CODE_SIGN_CERTIFICATE_PASSWORD`: password for the `.pfx`
 //!
 //! ## Azure Trusted Signing (cloud HSM)
 //!
-//! - `CODESIGN_AZURE_DLIB_PATH`: path to `Azure.CodeSigning.Dlib.dll`
-//! - `CODESIGN_AZURE_ENDPOINT`: Artifact Signing endpoint (e.g. `https://eus.codesigning.azure.net`)
-//! - `CODESIGN_AZURE_ACCOUNT`: `CodeSigningAccountName`
-//! - `CODESIGN_AZURE_CERTIFICATE_PROFILE`: `CertificateProfileName`
-//! - `CODESIGN_AZURE_CORRELATION_ID`: (optional) `CorrelationId` for tracking
+//! - `CODE_SIGN_AZURE_DLIB_PATH`: path to `Azure.CodeSigning.Dlib.dll`
+//! - `CODE_SIGN_AZURE_ENDPOINT`: Artifact Signing endpoint (e.g. `https://eus.codesigning.azure.net`)
+//! - `CODE_SIGN_AZURE_ACCOUNT`: `CodeSigningAccountName`
+//! - `CODE_SIGN_AZURE_CERTIFICATE_PROFILE`: `CertificateProfileName`
+//! - `CODE_SIGN_AZURE_CORRELATION_ID`: (optional) `CorrelationId` for tracking
 //!
 //! Azure auth is handled by the dlib via `DefaultAzureCredential` (supports
 //! `az login`, managed identity, environment variables, etc.).
 //!
 //! ## Shared options
 //!
-//! - `CODESIGN_TIMESTAMP_URL`: (optional) RFC 3161 timestamp server URL.
+//! - `CODE_SIGN_TIMESTAMP_URL`: (optional) RFC 3161 timestamp server URL.
 //!   Defaults to `http://timestamp.acs.microsoft.com` for Azure Trusted Signing.
-//! - `CODESIGN_TOOL_PATH`: (optional) explicit path to `signtool.exe`
-//! - `CODESIGN_DESCRIPTION`: (optional) description shown in UAC prompts (`/d`)
+//! - `CODE_SIGN_TOOL_PATH`: (optional) explicit path to `signtool.exe`
+//! - `CODE_SIGN_DESCRIPTION`: (optional) description shown in UAC prompts (`/d`)
 //!
-//! All variables also support a `_WINDOWS` suffix (e.g. `CODESIGN_CERTIFICATE_PATH_WINDOWS`).
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -35,15 +34,6 @@ use thiserror::Error;
 use crate::secret::Secret;
 
 const SIGNTOOL_BIN: &str = "signtool.exe";
-const WINDOWS_ENV_SUFFIX: &str = "WINDOWS";
-
-/// Read an env var with optional `_WINDOWS` suffix.
-fn env_var_windows(name: &str) -> Option<String> {
-    let suffixed = format!("{name}_{WINDOWS_ENV_SUFFIX}");
-    std::env::var(&suffixed)
-        .ok()
-        .or_else(|| std::env::var(name).ok())
-}
 
 /// Default timestamp server for Azure Trusted Signing.
 ///
@@ -68,11 +58,11 @@ pub enum SigntoolError {
 #[derive(Debug, Error)]
 pub enum SigntoolConfigError {
     #[error(
-        "incomplete Windows signing configuration: set both CODESIGN_CERTIFICATE_PATH and CODESIGN_CERTIFICATE_PASSWORD (missing: {missing})"
+        "incomplete Windows signing configuration: set both CODE_SIGN_CERTIFICATE_PATH and CODE_SIGN_CERTIFICATE_PASSWORD (missing: {missing})"
     )]
     IncompleteCertificateConfiguration { missing: String },
     #[error(
-        "incomplete Azure Trusted Signing configuration: set all of CODESIGN_AZURE_DLIB_PATH, CODESIGN_AZURE_ENDPOINT, CODESIGN_AZURE_ACCOUNT, and CODESIGN_AZURE_CERTIFICATE_PROFILE (missing: {missing})"
+        "incomplete Azure Trusted Signing configuration: set all of CODE_SIGN_AZURE_DLIB_PATH, CODE_SIGN_AZURE_ENDPOINT, CODE_SIGN_AZURE_ACCOUNT, and CODE_SIGN_AZURE_CERTIFICATE_PROFILE (missing: {missing})"
     )]
     IncompleteAzureConfiguration { missing: String },
     #[error("failed to prepare Azure Trusted Signing metadata: {0}")]
@@ -132,15 +122,15 @@ impl WindowsSigner {
 
     /// Try to construct a certificate-based signer from environment variables.
     fn from_env_certificate() -> Result<Option<Self>, SigntoolConfigError> {
-        let certificate_path = env_var_windows("CODESIGN_CERTIFICATE_PATH");
-        let certificate_password = env_var_windows("CODESIGN_CERTIFICATE_PASSWORD");
+        let certificate_path = std::env::var("CODE_SIGN_CERTIFICATE_PATH").ok();
+        let certificate_password = std::env::var("CODE_SIGN_CERTIFICATE_PASSWORD").ok();
 
         match (certificate_path, certificate_password) {
             (None, None) => Ok(None),
             (Some(certificate_path), Some(certificate_password)) => {
-                let timestamp_url = env_var_windows("CODESIGN_TIMESTAMP_URL");
+                let timestamp_url = std::env::var("CODE_SIGN_TIMESTAMP_URL").ok();
                 let signtool_path = signtool_path_from_env();
-                let description = env_var_windows("CODESIGN_DESCRIPTION");
+                let description = std::env::var("CODE_SIGN_DESCRIPTION").ok();
 
                 Ok(Some(Self {
                     signtool_path,
@@ -155,10 +145,10 @@ impl WindowsSigner {
             (path, password) => {
                 let mut missing = Vec::new();
                 if path.is_none() {
-                    missing.push("CODESIGN_CERTIFICATE_PATH");
+                    missing.push("CODE_SIGN_CERTIFICATE_PATH");
                 }
                 if password.is_none() {
-                    missing.push("CODESIGN_CERTIFICATE_PASSWORD");
+                    missing.push("CODE_SIGN_CERTIFICATE_PASSWORD");
                 }
                 Err(SigntoolConfigError::IncompleteCertificateConfiguration {
                     missing: missing.join(", "),
@@ -169,20 +159,21 @@ impl WindowsSigner {
 
     /// Try to construct an Azure Trusted Signing signer from environment variables.
     fn from_env_azure() -> Result<Option<Self>, SigntoolConfigError> {
-        let dlib_path = env_var_windows("CODESIGN_AZURE_DLIB_PATH");
-        let endpoint = env_var_windows("CODESIGN_AZURE_ENDPOINT");
-        let account = env_var_windows("CODESIGN_AZURE_ACCOUNT");
-        let cert_profile = env_var_windows("CODESIGN_AZURE_CERTIFICATE_PROFILE");
+        let dlib_path = std::env::var("CODE_SIGN_AZURE_DLIB_PATH").ok();
+        let endpoint = std::env::var("CODE_SIGN_AZURE_ENDPOINT").ok();
+        let account = std::env::var("CODE_SIGN_AZURE_ACCOUNT").ok();
+        let cert_profile = std::env::var("CODE_SIGN_AZURE_CERTIFICATE_PROFILE").ok();
 
         match (&dlib_path, &endpoint, &account, &cert_profile) {
             (None, None, None, None) => Ok(None),
             (Some(_), Some(endpoint), Some(account), Some(cert_profile)) => {
                 let dlib_path = PathBuf::from(dlib_path.unwrap());
-                let correlation_id = env_var_windows("CODESIGN_AZURE_CORRELATION_ID");
-                let timestamp_url = env_var_windows("CODESIGN_TIMESTAMP_URL")
+                let correlation_id = std::env::var("CODE_SIGN_AZURE_CORRELATION_ID").ok();
+                let timestamp_url = std::env::var("CODE_SIGN_TIMESTAMP_URL")
+                    .ok()
                     .or_else(|| Some(AZURE_TIMESTAMP_URL.to_string()));
                 let signtool_path = signtool_path_from_env();
-                let description = env_var_windows("CODESIGN_DESCRIPTION");
+                let description = std::env::var("CODE_SIGN_DESCRIPTION").ok();
 
                 let metadata = build_azure_metadata(
                     endpoint,
@@ -224,16 +215,16 @@ impl WindowsSigner {
             _ => {
                 let mut missing = Vec::new();
                 if dlib_path.is_none() {
-                    missing.push("CODESIGN_AZURE_DLIB_PATH");
+                    missing.push("CODE_SIGN_AZURE_DLIB_PATH");
                 }
                 if endpoint.is_none() {
-                    missing.push("CODESIGN_AZURE_ENDPOINT");
+                    missing.push("CODE_SIGN_AZURE_ENDPOINT");
                 }
                 if account.is_none() {
-                    missing.push("CODESIGN_AZURE_ACCOUNT");
+                    missing.push("CODE_SIGN_AZURE_ACCOUNT");
                 }
                 if cert_profile.is_none() {
-                    missing.push("CODESIGN_AZURE_CERTIFICATE_PROFILE");
+                    missing.push("CODE_SIGN_AZURE_CERTIFICATE_PROFILE");
                 }
                 Err(SigntoolConfigError::IncompleteAzureConfiguration {
                     missing: missing.join(", "),
@@ -384,10 +375,11 @@ fn escape_json_string(s: &str) -> String {
     out
 }
 
-/// Read `CODESIGN_TOOL_PATH` (optionally with `_WINDOWS` suffix) from the
-/// environment or fall back to `signtool.exe`.
+/// Read `CODE_SIGN_TOOL_PATH` from the environment or fall back to `signtool.exe`.
 fn signtool_path_from_env() -> PathBuf {
-    env_var_windows("CODESIGN_TOOL_PATH").map_or_else(|| PathBuf::from(SIGNTOOL_BIN), PathBuf::from)
+    std::env::var("CODE_SIGN_TOOL_PATH")
+        .ok()
+        .map_or_else(|| PathBuf::from(SIGNTOOL_BIN), PathBuf::from)
 }
 
 #[cfg(test)]
@@ -397,44 +389,16 @@ mod tests {
     #[test]
     fn test_from_env_missing_vars() {
         // With no env vars set, strict parsing should return Ok(None).
-        // (This test assumes no CODESIGN_* vars are set in the test environment.)
-        if std::env::var("CODESIGN_CERTIFICATE_PATH").is_err()
-            && std::env::var("CODESIGN_CERTIFICATE_PASSWORD").is_err()
-            && std::env::var("CODESIGN_AZURE_DLIB_PATH").is_err()
-            && std::env::var("CODESIGN_AZURE_ENDPOINT").is_err()
-            && std::env::var("CODESIGN_AZURE_ACCOUNT").is_err()
-            && std::env::var("CODESIGN_AZURE_CERTIFICATE_PROFILE").is_err()
-            && std::env::var("CODESIGN_CERTIFICATE_PATH_WINDOWS").is_err()
-            && std::env::var("CODESIGN_CERTIFICATE_PASSWORD_WINDOWS").is_err()
-            && std::env::var("CODESIGN_AZURE_DLIB_PATH_WINDOWS").is_err()
-            && std::env::var("CODESIGN_AZURE_ENDPOINT_WINDOWS").is_err()
-            && std::env::var("CODESIGN_AZURE_ACCOUNT_WINDOWS").is_err()
-            && std::env::var("CODESIGN_AZURE_CERTIFICATE_PROFILE_WINDOWS").is_err()
+        // (This test assumes no CODE_SIGN_* vars are set in the test environment.)
+        if std::env::var("CODE_SIGN_CERTIFICATE_PATH").is_err()
+            && std::env::var("CODE_SIGN_CERTIFICATE_PASSWORD").is_err()
+            && std::env::var("CODE_SIGN_AZURE_DLIB_PATH").is_err()
+            && std::env::var("CODE_SIGN_AZURE_ENDPOINT").is_err()
+            && std::env::var("CODE_SIGN_AZURE_ACCOUNT").is_err()
+            && std::env::var("CODE_SIGN_AZURE_CERTIFICATE_PROFILE").is_err()
         {
             assert!(WindowsSigner::from_env().unwrap().is_none());
         }
-    }
-
-    #[test]
-    fn test_from_env_windows_suffix_vars_are_supported() {
-        temp_env::with_vars(
-            [
-                ("CODESIGN_CERTIFICATE_PATH", None::<&str>),
-                ("CODESIGN_CERTIFICATE_PASSWORD", None::<&str>),
-                (
-                    "CODESIGN_CERTIFICATE_PATH_WINDOWS",
-                    Some("C:\\tmp\\cert.pfx"),
-                ),
-                ("CODESIGN_CERTIFICATE_PASSWORD_WINDOWS", Some("secret")),
-                ("CODESIGN_TOOL_PATH_WINDOWS", Some("signtool-custom.exe")),
-            ],
-            || {
-                let signer = WindowsSigner::from_env()
-                    .expect("from_env failed")
-                    .expect("expected signer from _WINDOWS vars");
-                assert_eq!(signer.signtool_path, PathBuf::from("signtool-custom.exe"));
-            },
-        );
     }
 
     #[test]

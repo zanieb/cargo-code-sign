@@ -3,8 +3,6 @@
 //! General environment variables:
 //! - `CARGO_CODE_SIGN_TEST_BINARIES`: set to `1` to also sign test binaries.
 //! - `CARGO_CODE_SIGN_SKIP`: set to `1` to skip all signing and fully pass through to cargo.
-//!   Also supports host-specific aliases: `CARGO_CODE_SIGN_SKIP_MACOS` and
-//!   `CARGO_CODE_SIGN_SKIP_WINDOWS`.
 //!
 //! Runs `cargo build --message-format=json` with the user's arguments, parses the artifact messages
 //! to find produced binaries and cdylibs, then signs each one.
@@ -94,7 +92,7 @@ fn run() -> Result<(), RunError> {
     let cargo = cargo();
 
     // Optional hard skip for all signing behavior.
-    let skip_signing = parse_boolish_env_platform("CARGO_CODE_SIGN_SKIP")?.unwrap_or(false);
+    let skip_signing = parse_boolish_env("CARGO_CODE_SIGN_SKIP")?.unwrap_or(false);
     if skip_signing {
         tracing::info!(
             "CARGO_CODE_SIGN_SKIP enabled; skipping signing and passing through to cargo"
@@ -318,29 +316,6 @@ fn rustc_host_target_triple() -> Result<String, RunError> {
         .find_map(|l| l.strip_prefix("host: "))
         .map(str::to_owned)
         .ok_or(RunError::RustcParse)
-}
-
-/// Parse a host-platform-suffixed boolean environment variable.
-///
-/// On macOS, reads `<NAME>_MACOS` first; on Windows, `<NAME>_WINDOWS` first;
-/// then falls back to `<NAME>`.
-fn parse_boolish_env_platform(name: &str) -> Result<Option<bool>, RunError> {
-    let suffix = if cfg!(target_os = "macos") {
-        Some("MACOS")
-    } else if cfg!(target_os = "windows") {
-        Some("WINDOWS")
-    } else {
-        None
-    };
-
-    if let Some(suffix) = suffix {
-        let scoped = format!("{name}_{suffix}");
-        if let Some(v) = parse_boolish_env(&scoped)? {
-            return Ok(Some(v));
-        }
-    }
-
-    parse_boolish_env(name)
 }
 
 /// Parse a boolean environment variable.

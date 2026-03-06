@@ -1,18 +1,16 @@
 //! macOS code signing using Apple's `codesign` tool.
 //!
 //! Environment variables:
-//! - `CODESIGN_IDENTITY`: signing identity (e.g. "Developer ID Application: ...")
-//! - `CODESIGN_CERTIFICATE`: base64-encoded `.p12` certificate
-//! - `CODESIGN_CERTIFICATE_PASSWORD`: password for the `.p12`
-//! - `CODESIGN_OPTIONS`: (optional) extra `--options` value (e.g. `"runtime"`)
-//! - `CODESIGN_ALLOW_UNTRUSTED`: (optional) set to `1` or `true` to allow
+//! - `CODE_SIGN_IDENTITY`: signing identity (e.g. "Developer ID Application: ...")
+//! - `CODE_SIGN_CERTIFICATE`: base64-encoded `.p12` certificate
+//! - `CODE_SIGN_CERTIFICATE_PASSWORD`: password for the `.p12`
+//! - `CODE_SIGN_OPTIONS`: (optional) extra `--options` value (e.g. `"runtime"`)
+//! - `CODE_SIGN_ALLOW_UNTRUSTED`: (optional) set to `1` or `true` to allow
 //!   self-signed certificates that are not in the system trust store.
 //!
-//! All variables also support a `_MACOS` suffix (e.g. `CODESIGN_CERTIFICATE_MACOS`).
-//!
 //! Supports two modes:
-//! 1. **Identity signing**: if `CODESIGN_IDENTITY`, `CODESIGN_CERTIFICATE`, and
-//!    `CODESIGN_CERTIFICATE_PASSWORD` are all set, creates an ephemeral keychain,
+//! 1. **Identity signing**: if `CODE_SIGN_IDENTITY`, `CODE_SIGN_CERTIFICATE`, and
+//!    `CODE_SIGN_CERTIFICATE_PASSWORD` are all set, creates an ephemeral keychain,
 //!    imports the certificate, and signs with the named identity.
 //! 2. **Ad-hoc signing**: if no identity certificate config is provided, uses
 //!    `codesign --force --sign -` (local development).
@@ -29,17 +27,6 @@ use crate::secret::Secret;
 
 const CODESIGN_BIN: &str = "codesign";
 const SECURITY_BIN: &str = "security";
-const MACOS_ENV_SUFFIX: &str = "MACOS";
-
-/// Read a signing env var with optional platform suffix.
-///
-/// Prefer `<NAME>_MACOS` when present, otherwise fall back to `<NAME>`.
-fn env_var_macos(name: &str) -> Option<String> {
-    let suffixed = format!("{name}_{MACOS_ENV_SUFFIX}");
-    std::env::var(&suffixed)
-        .ok()
-        .or_else(|| std::env::var(name).ok())
-}
 
 #[derive(Debug, Error)]
 pub enum CodesignError {
@@ -147,10 +134,10 @@ impl CodesignError {
 #[derive(Debug, Error)]
 pub enum CodesignConfigError {
     #[error(
-        "incomplete macOS signing configuration: all of CODESIGN_IDENTITY, CODESIGN_CERTIFICATE, and CODESIGN_CERTIFICATE_PASSWORD are required (missing: {missing})"
+        "incomplete macOS signing configuration: all of CODE_SIGN_IDENTITY, CODE_SIGN_CERTIFICATE, and CODE_SIGN_CERTIFICATE_PASSWORD are required (missing: {missing})"
     )]
     IncompleteConfiguration { missing: String },
-    #[error("CODESIGN_CERTIFICATE is not valid base64: {0}")]
+    #[error("CODE_SIGN_CERTIFICATE is not valid base64: {0}")]
     InvalidCertificate(#[source] base64::DecodeError),
 }
 
@@ -160,13 +147,13 @@ pub struct MacOsSigner {
     identity: String,
     certificate: Secret<Vec<u8>>,
     certificate_password: Secret<String>,
-    /// Extra `--options` value for codesign, parsed from `CODESIGN_OPTIONS`
+    /// Extra `--options` value for codesign, parsed from `CODE_SIGN_OPTIONS`
     options: Option<String>,
     /// When `true`, skip the trust check when verifying the signing identity
     /// exists in the keychain. This is useful for self-signed certificates
     /// (e.g. in CI) that are not in the system trust store.
     ///
-    /// Controlled by `CODESIGN_ALLOW_UNTRUSTED=1`.
+    /// Controlled by `CODE_SIGN_ALLOW_UNTRUSTED=1`.
     allow_untrusted: bool,
 }
 
@@ -176,15 +163,15 @@ impl MacOsSigner {
     /// # Errors
     ///
     /// - [`CodesignConfigError::IncompleteConfiguration`] when some but not all of
-    ///   `CODESIGN_IDENTITY`, `CODESIGN_CERTIFICATE`, and `CODESIGN_CERTIFICATE_PASSWORD` are set.
-    /// - [`CodesignConfigError::InvalidCertificate`] when `CODESIGN_CERTIFICATE` is not valid
+    ///   `CODE_SIGN_IDENTITY`, `CODE_SIGN_CERTIFICATE`, and `CODE_SIGN_CERTIFICATE_PASSWORD` are set.
+    /// - [`CodesignConfigError::InvalidCertificate`] when `CODE_SIGN_CERTIFICATE` is not valid
     ///   base64.
     ///
     /// Returns [`Ok(None)`] when none of the identity variables are set.
     pub fn from_env() -> Result<Option<Self>, CodesignConfigError> {
-        let identity = env_var_macos("CODESIGN_IDENTITY");
-        let cert_b64 = env_var_macos("CODESIGN_CERTIFICATE");
-        let password = env_var_macos("CODESIGN_CERTIFICATE_PASSWORD");
+        let identity = std::env::var("CODE_SIGN_IDENTITY").ok();
+        let cert_b64 = std::env::var("CODE_SIGN_CERTIFICATE").ok();
+        let password = std::env::var("CODE_SIGN_CERTIFICATE_PASSWORD").ok();
 
         match (identity, cert_b64, password) {
             (None, None, None) => Ok(None),
@@ -199,8 +186,9 @@ impl MacOsSigner {
                 let certificate = base64::engine::general_purpose::STANDARD
                     .decode(&cert_b64_clean)
                     .map_err(CodesignConfigError::InvalidCertificate)?;
-                let options = env_var_macos("CODESIGN_OPTIONS");
-                let allow_untrusted = env_var_macos("CODESIGN_ALLOW_UNTRUSTED")
+                let options = std::env::var("CODE_SIGN_OPTIONS").ok();
+                let allow_untrusted = std::env::var("CODE_SIGN_ALLOW_UNTRUSTED")
+                    .ok()
                     .is_some_and(|v| v == "1" || v.eq_ignore_ascii_case("true"));
 
                 Ok(Some(Self {
@@ -214,13 +202,13 @@ impl MacOsSigner {
             (identity, cert_b64, password) => {
                 let mut missing = Vec::new();
                 if identity.is_none() {
-                    missing.push("CODESIGN_IDENTITY");
+                    missing.push("CODE_SIGN_IDENTITY");
                 }
                 if cert_b64.is_none() {
-                    missing.push("CODESIGN_CERTIFICATE");
+                    missing.push("CODE_SIGN_CERTIFICATE");
                 }
                 if password.is_none() {
-                    missing.push("CODESIGN_CERTIFICATE_PASSWORD");
+                    missing.push("CODE_SIGN_CERTIFICATE_PASSWORD");
                 }
                 Err(CodesignConfigError::IncompleteConfiguration {
                     missing: missing.join(", "),
@@ -441,7 +429,7 @@ impl EphemeralKeychain {
     /// and wrong certificate types early — before `codesign` fails with a cryptic error.
     ///
     /// When `allow_untrusted` is `false` (the default), the `-v` flag is passed to
-    /// filter to valid (trusted) identities only. Set `CODESIGN_ALLOW_UNTRUSTED=1`
+    /// filter to valid (trusted) identities only. Set `CODE_SIGN_ALLOW_UNTRUSTED=1`
     /// to skip the trust check, which is useful for self-signed certificates in CI.
     fn verify_identity(&self, identity: &str, allow_untrusted: bool) -> Result<(), CodesignError> {
         let keychain_str = self.path_str()?;

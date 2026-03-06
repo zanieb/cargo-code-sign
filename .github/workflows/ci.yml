@@ -169,10 +169,10 @@ jobs:
           CERT_SHA1="$(openssl x509 -in "$CERT_DIR/cert.pem" -noout -fingerprint -sha1 | cut -d= -f2 | tr -d ':')"
 
           {
-            echo "CODESIGN_IDENTITY=$CERT_SHA1"
-            echo "CODESIGN_CERTIFICATE=$CERT_B64"
-            echo "CODESIGN_CERTIFICATE_PASSWORD=$P12_PASSWORD"
-            echo "CODESIGN_ALLOW_UNTRUSTED=1"
+            echo "CODE_SIGN_IDENTITY=$CERT_SHA1"
+            echo "CODE_SIGN_CERTIFICATE=$CERT_B64"
+            echo "CODE_SIGN_CERTIFICATE_PASSWORD=$P12_PASSWORD"
+            echo "CODE_SIGN_ALLOW_UNTRUSTED=1"
           } >> "$GITHUB_ENV"
 
       - name: "Cargo test"
@@ -233,9 +233,9 @@ jobs:
             throw "signtool.exe not found on runner"
           }
 
-          "CODESIGN_CERTIFICATE_PATH=$pfxPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "CODESIGN_CERTIFICATE_PASSWORD=$passwordPlain" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "CODESIGN_TOOL_PATH=$signtool" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "CODE_SIGN_CERTIFICATE_PATH=$pfxPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "CODE_SIGN_CERTIFICATE_PASSWORD=$passwordPlain" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "CODE_SIGN_TOOL_PATH=$signtool" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: "Cargo test"
         run: cargo test --workspace --all-features --locked

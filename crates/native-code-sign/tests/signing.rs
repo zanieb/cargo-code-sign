@@ -78,12 +78,9 @@ fn test_adhoc_sign_via_signer_api() {
     // With no identity env vars, macOS targets get ad-hoc signing.
     let signer = temp_env::with_vars_unset(
         [
-            "CODESIGN_IDENTITY",
-            "CODESIGN_CERTIFICATE",
-            "CODESIGN_CERTIFICATE_PASSWORD",
-            "CODESIGN_IDENTITY_MACOS",
-            "CODESIGN_CERTIFICATE_MACOS",
-            "CODESIGN_CERTIFICATE_PASSWORD_MACOS",
+            "CODE_SIGN_IDENTITY",
+            "CODE_SIGN_CERTIFICATE",
+            "CODE_SIGN_CERTIFICATE_PASSWORD",
         ],
         || Signer::from_env("aarch64-apple-darwin"),
     )
@@ -104,9 +101,9 @@ fn test_identity_sign_via_signer_api() {
     if !require_env_or_skip(
         "macOS identity signing",
         &[
-            "CODESIGN_IDENTITY",
-            "CODESIGN_CERTIFICATE",
-            "CODESIGN_CERTIFICATE_PASSWORD",
+            "CODE_SIGN_IDENTITY",
+            "CODE_SIGN_CERTIFICATE",
+            "CODE_SIGN_CERTIFICATE_PASSWORD",
         ],
     ) {
         return;
@@ -132,9 +129,9 @@ fn test_identity_sign_multiple_files_one_session() {
     if !require_env_or_skip(
         "macOS identity signing (multi-file)",
         &[
-            "CODESIGN_IDENTITY",
-            "CODESIGN_CERTIFICATE",
-            "CODESIGN_CERTIFICATE_PASSWORD",
+            "CODE_SIGN_IDENTITY",
+            "CODE_SIGN_CERTIFICATE",
+            "CODE_SIGN_CERTIFICATE_PASSWORD",
         ],
     ) {
         return;
@@ -167,9 +164,9 @@ fn test_default_keychain_preserved_after_session() {
     if !require_env_or_skip(
         "macOS keychain preservation",
         &[
-            "CODESIGN_IDENTITY",
-            "CODESIGN_CERTIFICATE",
-            "CODESIGN_CERTIFICATE_PASSWORD",
+            "CODE_SIGN_IDENTITY",
+            "CODE_SIGN_CERTIFICATE",
+            "CODE_SIGN_CERTIFICATE_PASSWORD",
         ],
     ) {
         return;
@@ -209,9 +206,9 @@ fn test_ephemeral_keychain_removed_from_search_list() {
     if !require_env_or_skip(
         "macOS keychain cleanup",
         &[
-            "CODESIGN_IDENTITY",
-            "CODESIGN_CERTIFICATE",
-            "CODESIGN_CERTIFICATE_PASSWORD",
+            "CODE_SIGN_IDENTITY",
+            "CODE_SIGN_CERTIFICATE",
+            "CODE_SIGN_CERTIFICATE_PASSWORD",
         ],
     ) {
         return;
@@ -260,12 +257,9 @@ fn test_from_env_returns_none_for_windows_cross_compile() {
 fn test_from_env_returns_none_for_apple_cross_compile() {
     let result = temp_env::with_vars_unset(
         [
-            "CODESIGN_IDENTITY",
-            "CODESIGN_CERTIFICATE",
-            "CODESIGN_CERTIFICATE_PASSWORD",
-            "CODESIGN_IDENTITY_MACOS",
-            "CODESIGN_CERTIFICATE_MACOS",
-            "CODESIGN_CERTIFICATE_PASSWORD_MACOS",
+            "CODE_SIGN_IDENTITY",
+            "CODE_SIGN_CERTIFICATE",
+            "CODE_SIGN_CERTIFICATE_PASSWORD",
         ],
         || Signer::from_env("aarch64-apple-darwin"),
     )
@@ -285,7 +279,10 @@ fn test_from_env_returns_none_for_apple_cross_compile() {
 fn test_windows_sign_via_signer_api() {
     if !require_env_or_skip(
         "Windows signing",
-        &["CODESIGN_CERTIFICATE_PATH", "CODESIGN_CERTIFICATE_PASSWORD"],
+        &[
+            "CODE_SIGN_CERTIFICATE_PATH",
+            "CODE_SIGN_CERTIFICATE_PASSWORD",
+        ],
     ) {
         return;
     }
